@@ -1,7 +1,22 @@
 from CandidateSet import CandidateSet as cs
 
+import sys
+
+
+def get_argv(i, default_val):
+    if len(sys.argv) > i:
+        return sys.argv[i]
+    else:
+        return default_val
+
+
 # Specify input, output and execution parameters. Load input data and initialize.
-cset = cs.CandidateSet('example.csv', save_output=True, save_suffix='Example', multiprocessing=0)
+in_name = get_argv(1, "example")
+csv_name = f"{in_name}.csv"
+print(f"Process {csv_name}...")
+lc_type = get_argv(2, "TESS-SPOC")
+
+cset = cs.CandidateSet(csv_name, lc_type=lc_type, save_output=True, save_suffix=in_name, multiprocessing=0, plot_centroid=True)
 
 # Retrieve required data for the target stars from the TIC, including the nearby sources.
 cset.generate_sources(infile=None)

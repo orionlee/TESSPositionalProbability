@@ -12,7 +12,7 @@ from requests.exceptions import ConnectionError
 import matplotlib.pyplot as plt
     
 
-def load_default(infile, lc_dir, per_lim=None, depth_lim=None):
+def load_default(infile, lc_dir, lc_type, per_lim=None, depth_lim=None):
     if lc_dir == 'default':
         filepath = Path(__file__).resolve().parents[1] / 'Lightcurves' 
     else:
@@ -30,10 +30,17 @@ def load_default(infile, lc_dir, per_lim=None, depth_lim=None):
     
     for ticid in data.index.unique('ticid'):
         files_loc = data.loc[ticid, 'lcdir'].iloc[0]
-        files = list(files_loc.glob('*lc.fits*'))
         
         # Obtain the sector from the filename of each lc file
-        sec = [int(f.stem.split('_')[4][-2:]) for f in files]
+        if lc_type == "TESS-SPOC":
+            files = list(files_loc.glob('hlsp_tess-spoc*lc.fits'))
+            sec = [int(f.stem.split('_')[4][-2:]) for f in files]
+        elif lc_type == "SPOC":
+            files = list(files_loc.glob('tess*lc.fits'))
+            sec = [int(f.stem.split('-')[1][-2:]) for f in files]
+        else:
+            raise ValueError(f"Unsupported lc_type: {lc_type}")
+        
         # Order the sectors in ascending order
         sec = sorted(sec)
         

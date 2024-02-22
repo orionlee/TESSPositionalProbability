@@ -14,7 +14,7 @@ from CandidateSet import utils
 
 class CandidateSet(object):
 
-    def __init__(self, infile, infile_type='default', lc_dir='default', per_lim=None, depth_lim=None, multiprocessing=0, save_output=False, save_suffix=None, load_suffix=None, plot_centroid=False):
+    def __init__(self, infile, infile_type='default', lc_dir='default', lc_type="TESS-SPOC", per_lim=None, depth_lim=None, multiprocessing=0, save_output=False, save_suffix=None, load_suffix=None, plot_centroid=False):
         """
         Load in a set of candidates with their transit parameters [period, epoch, depth]. Sets up the environment for running the positional probabilitiy generation.         
         
@@ -31,15 +31,17 @@ class CandidateSet(object):
         plot_centroid - True/False. Create plots when fitting the trapezium transit model to the centroid data.
         """
 
+        self.lc_type = lc_type  # signal the type of LC files (SPOC, TESS-SPOC, etc.)
+
         if infile_type == 'exofop':
             self.data = utils.load_exofop_toi(infile, lc_dir, per_lim=per_lim, depth_lim=depth_lim)
         elif infile_type == 'archive':
             self.data = utils.load_archive_toi(infile, lc_dir, per_lim=per_lim, depth_lim=depth_lim)
         elif infile_type == 'default':
-            self.data = utils.load_default(infile, lc_dir, per_lim=per_lim, depth_lim=depth_lim)
+            self.data = utils.load_default(infile, lc_dir, lc_type, per_lim=per_lim, depth_lim=depth_lim)
         else:
             raise ValueError('Infile type must be set as one of: default/archive/exofop')
-        
+
         # Data containers    
         self.sources = {} # Source objects
         self.sector_data = None # Per sector transit data
@@ -450,6 +452,16 @@ class CandidateSet(object):
         return filled, fails
     
     
+    def get_lcfile(self, lcdir, sec):
+        if self.lc_type == "TESS-SPOC":
+            lcfile = list(lcdir.glob(f'hlsp_tess-spoc*{sec:04}*lc.fits'))[0]
+        elif self.lc_type == "SPOC":
+            lcfile = list(lcdir.glob(f'tess*s{sec:04}*lc.fits'))[0]
+        else:
+            raise ValueError(f"Unsupported lc_type: {self.lc_type}")
+        return lcfile
+
+
     def per_sector_data(self, ticid, initial_data):
         """
         Determine per sector transit duration, non-ingress/egress duration and depth for a single candidate by fitting a trapezium model to the TESS lightcurve 
@@ -474,7 +486,7 @@ class CandidateSet(object):
         hdus = {}
         sec_error = []
         for sec in sectors:
-            lcfile = list(lcdir.glob(f'*{sec:04}*lc.fits'))[0]
+            lcfile = self.get_lcfile(lcdir, sec)
             lc = utils.load_spoc_lc(lcfile, flatten=True, transitcut=True,
                                     tc_per=initial_data.per.values, 
                                     tc_t0=initial_data.t0.values,
@@ -707,8 +719,8 @@ class CandidateSet(object):
         lcdir = self.data.loc[(ticid, cndt)].lcdir
 
         # Sector lightcurve file
-        lc_file = list(lcdir.glob(f'*s{sec:04}*lc.fits'))[0]
-        
+        lc_file = self.get_lcfile(lcdir, sec)
+
         # Load in the detrended, normalized and with outliers removed vertical and horizontal centroid position data. 
         # The flag specifies issues found during the loading of the data that prevent the offset calculation.
         # CAM and CCD retrieve for diagnostic purposes when displaying the results.
@@ -769,7 +781,7 @@ class CandidateSet(object):
             for sec in sectors:
                 # Retrieve the lc file for the sector
                 file_loc = self.data.loc[ticid].iloc[0].lcdir
-                filepath = list(file_loc.glob(f'*s{sec:04}*lc.fits'))[0]
+                filepath = self.get_lcfile(file_loc, sec)
                 
                 # Load in the pipeline aperture and centroid masks for the target pixels, the wcs and the origin location of the target pixel on the ccd
                 aperture_mask, centroid_mask, wcs, origin, cam, ccd = utils.load_spoc_masks(filepath)
